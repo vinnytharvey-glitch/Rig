@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d1b2e">
+<title>RIG · Everest Platinum + 8×5 caged · reversing trainer</title>
+<style>
+:root{--ink:#cfe0ff;--paper:#0d1b2e;--cy:#4fe3ff;--am:#ffb347;--mg:#ff4fd8;--gn:#5cff8a;--rd:#ff4f5e;--ln:#3a5f93}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--paper);color:var(--ink);font:12px/1.3 ui-monospace,Menlo,Consolas,monospace;overflow:hidden;-webkit-user-select:none;user-select:none}
+#app{display:grid;grid-template-columns:1fr 250px;height:100%;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+#stageWrap{position:relative;min-height:0;min-width:0}
+#stage{width:100%;height:100%;display:block;touch-action:none}
+#panel{position:relative;border-left:1px solid #2a4a7a;padding:10px;display:flex;flex-direction:column;gap:7px;overflow:auto}
+#panel::before,#panel::after{content:'';position:absolute;width:10px;height:10px;border:1px solid #5f86bf;pointer-events:none}
+#panel::before{top:4px;left:4px;border-right:0;border-bottom:0}#panel::after{bottom:4px;right:4px;border-left:0;border-top:0}
+button,select,input,summary{font:inherit;color:var(--ink);background:#122646;border:1px solid var(--ln);padding:7px 5px;letter-spacing:.06em}
+button{touch-action:none;cursor:pointer}button.on{background:#214a80;border-color:var(--cy)}
+.pedals{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pedal{height:80px;font-size:14px;background:repeating-linear-gradient(135deg,#122646 0 6px,#17305a 6px 8px);clip-path:polygon(10% 0,90% 0,100% 12%,100% 100%,0 100%,0 12%)}
+.pedal.on{background:repeating-linear-gradient(135deg,#1c3d6e 0 6px,#28528f 6px 8px);transform:translateY(3px)}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+#wheel{width:100%;aspect-ratio:1;display:block;touch-action:none}
+.knob{display:grid;grid-template-columns:1fr auto;gap:4px;align-items:center}
+.knob label{grid-column:1/3;font-size:10px;color:#7fa6dd;letter-spacing:.1em}
+input[type=range]{width:100%;accent-color:var(--mg);background:none;border:0;padding:0}
+#banner,#coach{position:absolute;left:8px;right:8px;padding:6px 8px;border:1px solid var(--ln);background:rgba(13,27,46,.9);pointer-events:none}
+#banner{top:8px;display:none;letter-spacing:.1em;color:var(--gn)}
+#coach{bottom:8px;color:var(--am)}
+.ro{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;font-size:11px}.ro b{color:var(--cy);font-weight:normal}
+.ro .w{grid-column:1/3;color:#7fa6dd;font-size:10px;border-top:1px dashed #274470;padding-top:3px;margin-top:2px}
+details{font-size:10px}summary{cursor:pointer;color:#7fa6dd}
+#cfgGrid{display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:4px}
+#cfgGrid label{display:flex;flex-direction:column;color:#7fa6dd}#cfgGrid input{width:100%;padding:3px 4px;color:var(--ink)}
+.hint{font-size:10px;color:#5f86bf;line-height:1.4}
+@media(max-width:620px){#app{grid-template-columns:1fr;grid-template-rows:1fr auto}#panel{border-left:0;border-top:1px solid #2a4a7a;flex-direction:row;flex-wrap:wrap;align-items:center;max-height:52vh}
+#ro{flex:1 1 150px}#wheel{width:100px;flex:0 0 100px}.knob{flex:1 1 100%}.pedals{flex:1 1 170px}.g3{flex:1 1 120px}select,details,#scrub{flex:1 1 100%}.hint{display:none}}
+</style></head><body>
+<div id="app">
+<div id="stageWrap"><canvas id="stage"></canvas><div id="banner"></div><div id="coach"></div></div>
+<div id="panel">
+ <div class="ro" id="ro"></div>
+ <canvas id="wheel"></canvas>
+ <div class="knob"><label>PTBA KNOB · ← trailer left · trailer right →</label><input type="range" id="knob" min="-100" max="100" value="0"><button id="knob0">⌂</button></div>
+ <div class="pedals"><button class="pedal" id="brake">BRAKE</button><button class="pedal" id="gas">GAS</button></div>
+ <div class="g3 gears"><button data-g="D">D</button><button data-g="N" class="on">N</button><button data-g="R">R</button></div>
+ <div class="g3"><button id="hold">HOLD</button><button id="ptba">PTBA</button><button id="mirror">MIRROR R</button></div>
+ <div class="g3"><button id="sweep">SWEEP</button><button id="replay">REPLAY</button><button id="reset">RESET</button></div>
+ <input type="range" id="scrub" min="0" max="0" value="0" style="display:none">
+ <select id="scn"></select>
+ <details id="cfg"><summary>RIG · 2025 EVEREST PLATINUM · 8×5 CAGED (edit)</summary><div id="cfgGrid"></div></details>
+ <div class="hint">drag canvas = steer (140 px = lock) · tap = AIM · drag wheel = absolute<br>keys ←→↑↓ · D N R · H hold · P ptba · M mirror · S sweep · [ ] knob · Esc reset</div>
+</div></div>
+<script>
+'use strict';
+const TAU=Math.PI*2,D2R=Math.PI/180,R2D=180/Math.PI;
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const wrap=a=>{a=(a+Math.PI)%TAU;if(a<0)a+=TAU;return a-Math.PI;};
+const $=id=>document.getElementById(id);
+// ---- rig: 2025 Everest Platinum (3.0 V6) + single-axle 8×5 caged. m / rad / m/s / kg
+const P={L1:2.9,dh:1.29,ohF:0.87,ohT:1.14,wT:1.92,dMax:26*D2R,L2:2.85,trayF:1.3,ohR:1.1,wR:1.95,jk:70*D2R,
+ vF:2.6,vR:1.4,acc:2.4,brk:4.5,drag:1.4,ball:150,atm:750,kerb:2465,gvm:3150,gcm:6250};
+const KP=1.2;           // PTBA hitch-angle gain (1/m of travel)
+const gMax=()=>0.6*P.jk; // PTBA max commanded hitch angle (system drops out beyond)
+const CFG=[['L1','wheelbase m',1,.01],['dh','rear axle→ball m',1,.01],['ohT','rear overhang m',1,.01],['ohF','front overhang m',1,.01],['wT','car width m',1,.01],['dMax','max road-wheel lock °',D2R,.5],
+ ['L2','ball→trailer axle m',1,.01],['trayF','axle→tray front m',1,.01],['ohR','axle→tray rear m',1,.01],['wR','trailer width m',1,.01],['jk','jackknife limit °',D2R,1],['ball','ball load kg',1,10],['atm','trailer ATM kg',1,10]];
+// scenarios: s=[x,y,hdg°] tractor rear axle · t=[x,y,hdg°] target trailer-axle pose · c=cones
+const SC=[
+ {n:'01 STRAIGHT BACK',s:[0,0,90],t:[0,-10,90],c:[[-2.6,-6],[2.6,-6],[-2.6,-13],[2.6,-13]]},
+ {n:'02 90° ALLEY DOCK',s:[-8,0,0],t:[4,-9,90],c:[[1.4,-6],[6.6,-6],[1.4,-12],[6.6,-12]]},
+ {n:'03 PARALLEL BAY',s:[-6,0,0],t:[6,-4,0],c:[[0,-2.5],[12,-2.5],[0,-5.5],[12,-5.5]]},
+ {n:'04 SLALOM',s:[0,-20,90],t:[0,14,90],c:[[-2.4,-10],[2.4,-4],[-2.4,2],[2.4,8]]},
+ {n:'05 FREE PAD',s:[0,0,90],t:null,c:[[7,6],[-8,4],[6,-9],[-7,-8],[0,13]]}
+];
+const stage=$('stage'),ctx=stage.getContext('2d'),wheel=$('wheel'),wctx=wheel.getContext('2d');
+const banner=$('banner'),coach=$('coach'),ro=$('ro'),scnSel=$('scn'),holdB=$('hold'),ptbaB=$('ptba'),mirB=$('mirror'),swB=$('sweep'),rpB=$('replay'),knob=$('knob'),scrub=$('scrub');
+let s,gear='N',hold=false,jack=false,aim=null,gas=false,brake=false,gasP=false,brakeP=false,scn=0,cam={x:0,y:0},prevTail=null,tailV=[0,0],cones=[],docked=false,hits=0,W=0,H=0,sc=14,dpr=1,dockInfo='',wp=false,ptr=null;
+let ptba=false,ptbaSat=false,gDes=0,mirrorSide=-1,sweepOn=false,trav=0,replayOn=false,rec=[],recIdx=0,shunts=0,maxHitch=0,lastDir=0,t0=0,score=null,best=null;
+const keys={};
+
+// ---------- model ----------
+function geo(q){const c1=Math.cos(q.t1),s1=Math.sin(q.t1),c2=Math.cos(q.t2),s2=Math.sin(q.t2);
+ const hx=q.x-P.dh*c1,hy=q.y-P.dh*s1,ax=hx-P.L2*c2,ay=hy-P.L2*s2;
+ return{hx,hy,ax,ay,tx:ax-P.ohR*c2,ty:ay-P.ohR*s2,fx:q.x+P.L1*c1,fy:q.y+P.L1*s1,c1,s1,c2,s2};}
+function kin(q,dt){ // non-holonomic tractor-trailer, ball hitch dh BEHIND rear axle
+ const w1=q.v*Math.tan(q.d)/P.L1,g=q.t1-q.t2;
+ const w2=(q.v*Math.sin(g)-P.dh*w1*Math.cos(g))/P.L2;
+ q.x+=q.v*Math.cos(q.t1)*dt;q.y+=q.v*Math.sin(q.t1)*dt;q.t1+=w1*dt;q.t2+=w2*dt;}
+function ptbaSteer(q){ // inverse kinematics: steering that drives hitch angle g → gDes at rate KP·|v|
+ const g=wrap(q.t1-q.t2),sg=Math.sign(q.v)||1;
+ const num=P.L1*(KP*sg*(gDes-g)+Math.sin(g)/P.L2),den=1+P.dh*Math.cos(g)/P.L2;
+ return Math.atan(num/den);}
+function physics(dt){const dir=gear==='D'?1:gear==='R'?-1:0;
+ if(gas&&dir)s.v+=dir*P.acc*dt;
+ const dec=brake?P.brk:P.drag;s.v-=Math.sign(s.v)*Math.min(Math.abs(s.v),dec*dt);
+ s.v=clamp(s.v,-P.vR,P.vF);
+ if(ptba&&gear==='R'&&Math.abs(s.v)>0.05){const w=ptbaSteer(s);ptbaSat=Math.abs(w)>P.dMax;s.d+=(clamp(w,-P.dMax,P.dMax)-s.d)*Math.min(1,8*dt);}else ptbaSat=false;
+ const x0=s.x,y0=s.y;kin(s,dt);
+ trav+=Math.hypot(s.x-x0,s.y-y0);if(sweepOn&&trav>0.12){trav=0;stampSweep();}
+ const psi=Math.abs(wrap(s.t1-s.t2));if(psi>maxHitch)maxHitch=psi;
+ if(Math.abs(s.v)>0.1){const md=Math.sign(s.v);if(lastDir&&md!==lastDir)shunts++;lastDir=md;if(!t0)t0=performance.now();}
+ if(psi>P.jk){jack=true;s.v=0;}}
+function predict(q0,dir){const q={...q0};q.v=dir;const A=[[q.x,q.y]],B=[];let jk=false;const g0=geo(q);B.push([g0.tx,g0.ty]);
+ for(let i=0;i<500;i++){if(ptba&&dir<0){q.d=clamp(ptbaSteer(q),-P.dMax,P.dMax);}kin(q,0.05);const g=geo(q);A.push([q.x,q.y]);B.push([g.tx,g.ty]);if(Math.abs(wrap(q.t1-q.t2))>P.jk){jk=true;break;}}
+ return{A,B,jk};}
+function inRect(px,py,cx,cy,th,x0,x1,hw){const c=Math.cos(th),sn=Math.sin(th),dx=px-cx,dy=py-cy;const lx=dx*c+dy*sn,ly=-dx*sn+dy*c;return lx>=x0&&lx<=x1&&Math.abs(ly)<=hw;}
+function grade(dd,da){const T=t0?(performance.now()-t0)/1000:0,mh=maxHitch*R2D;
+ let v=100-3*shunts-15*hits-Math.max(0,mh-40)*0.5-dd*30-da*1.5-Math.max(0,T-60)*0.25;v=Math.round(clamp(v,0,100));
+ score={t:T,sh:shunts,mh,hits,sc:v};try{const k='rig.best.'+scn,b=+localStorage.getItem(k)||0;if(v>b)localStorage.setItem(k,v);best=Math.max(b,v);}catch(e){}}
+function reset(i){scn=i;const c=SC[i];s={x:c.s[0],y:c.s[1],t1:c.s[2]*D2R,t2:c.s[2]*D2R,v:0,d:0};
+ cones=c.c.map(p=>({x:p[0],y:p[1],hit:0}));jack=false;aim=null;prevTail=null;docked=false;hits=0;setGear('N');
+ rec=[];recIdx=0;shunts=0;maxHitch=0;lastDir=0;t0=0;score=null;setReplay(false);clearSweep();knob.value=0;gDes=0;ptbaSat=false;
+ try{best=+localStorage.getItem('rig.best.'+scn)||null;}catch(e){best=null;}
+ const g=geo(s);cam.x=(s.x+g.ax)/2;cam.y=(s.y+g.ay)/2;banner.style.display='none';scnSel.value=i;}
+
+// ---------- sweep overlay (offscreen, world ±50 m) ----------
+const SWE=50,SWM=12,SWS=2*SWE*SWM;const sw=document.createElement('canvas');sw.width=sw.height=SWS;const swc=sw.getContext('2d');
+function clearSweep(){swc.setTransform(1,0,0,1,0,0);swc.clearRect(0,0,SWS,SWS);}
+function rectW(c,cx,cy,th,x0,x1,hw){c.save();c.translate(cx,cy);c.rotate(th);c.fillRect(x0,-hw,x1-x0,2*hw);c.restore();}
+function stampSweep(){const g=geo(s);swc.setTransform(SWM,0,0,-SWM,SWE*SWM,SWE*SWM);
+ swc.fillStyle='rgba(79,227,255,.05)';rectW(swc,s.x,s.y,s.t1,-P.ohT,P.L1+P.ohF,P.wT/2);
+ swc.fillStyle='rgba(255,179,71,.06)';rectW(swc,g.ax,g.ay,s.t2,-P.ohR,P.trayF,P.wR/2);}
+
+// ---------- audio ----------
+let AC;function blip(){try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),gn=AC.createGain();o.frequency.value=220;gn.gain.value=.2;o.connect(gn).connect(AC.destination);o.start();gn.gain.exponentialRampToValueAtTime(.001,AC.currentTime+.12);o.stop(AC.currentTime+.13);}catch(e){}}
+
+// ---------- draw helpers ----------
+function resize(){dpr=Math.min(devicePixelRatio||1,2.5);const r=stage.getBoundingClientRect();W=r.width;H=r.height;stage.width=W*dpr;stage.height=H*dpr;sc=Math.max(9,Math.min(W,H)/30);
+ const wr=wheel.getBoundingClientRect();wheel.width=wr.width*dpr;wheel.height=wr.height*dpr;}
+new ResizeObserver(resize).observe(stage);new ResizeObserver(resize).observe(wheel);
+const lw=k=>ctx.lineWidth=k/sc;
+function s2w(X,Y){return{x:cam.x+(X-W/2)/sc,y:cam.y-(Y-H/2)/sc};}
+function wtxt(str,x,y,col,al='center',sz=11){ctx.save();ctx.translate(x,y);ctx.scale(1/sc,-1/sc);ctx.fillStyle=col;ctx.font=sz+'px ui-monospace,Menlo,monospace';ctx.textAlign=al;ctx.textBaseline='middle';ctx.fillText(str,0,0);ctx.restore();}
+function circle(x,y,r){ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.stroke();}
+function poly(A){if(A.length<2)return;ctx.beginPath();ctx.moveTo(A[0][0],A[0][1]);for(const p of A)ctx.lineTo(p[0],p[1]);ctx.stroke();}
+function arrow(x0,y0,x1,y1,col){const a=Math.atan2(y1-y0,x1-x0);ctx.strokeStyle=col;lw(2);ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.lineTo(x1-0.5*Math.cos(a-0.5),y1-0.5*Math.sin(a-0.5));ctx.moveTo(x1,y1);ctx.lineTo(x1-0.5*Math.cos(a+0.5),y1-0.5*Math.sin(a+0.5));ctx.stroke();}
+function body(cx,cy,th,x0,x1,hw,fill,stroke,hatch){ctx.save();ctx.translate(cx,cy);ctx.rotate(th);ctx.beginPath();ctx.rect(x0,-hw,x1-x0,2*hw);
+ if(fill){ctx.fillStyle=fill;ctx.fill();}
+ if(hatch){ctx.save();ctx.clip();ctx.strokeStyle=hatch;lw(1);ctx.beginPath();for(let u=x0-2*hw;u<x1+2*hw;u+=0.45){ctx.moveTo(u,-hw);ctx.lineTo(u+2*hw,hw);}ctx.stroke();ctx.restore();}
+ ctx.strokeStyle=stroke;lw(1.5);ctx.stroke();ctx.restore();}
+function tyre(x,y,th){ctx.save();ctx.translate(x,y);ctx.rotate(th);ctx.fillStyle='#cfe0ff';ctx.fillRect(-0.38,-0.14,0.76,0.28);ctx.restore();}
+function axleTyres(cx,cy,th,hw,steer){const c=Math.cos(th),sn=Math.sin(th);tyre(cx-hw*sn,cy+hw*c,th+steer);tyre(cx+hw*sn,cy-hw*c,th+steer);}
+function drawGrid(){const x0=cam.x-W/2/sc,x1=cam.x+W/2/sc,y0=cam.y-H/2/sc,y1=cam.y+H/2/sc;ctx.lineWidth=1;ctx.font='10px ui-monospace,Menlo,monospace';
+ for(let i=Math.floor(x0);i<=x1;i++){const X=Math.round(W/2+(i-cam.x)*sc)+.5,M=i%5===0;ctx.strokeStyle=M?'#274470':'#182d4c';ctx.beginPath();ctx.moveTo(X,0);ctx.lineTo(X,H);ctx.stroke();if(M){ctx.fillStyle='#5f86bf';ctx.textAlign='center';ctx.fillText(i,X,H-4);}}
+ for(let j=Math.floor(y0);j<=y1;j++){const Y=Math.round(H/2-(j-cam.y)*sc)+.5,M=j%5===0;ctx.strokeStyle=M?'#274470':'#182d4c';ctx.beginPath();ctx.moveTo(0,Y);ctx.lineTo(W,Y);ctx.stroke();if(M){ctx.fillStyle='#5f86bf';ctx.textAlign='left';ctx.fillText(j,4,Y-3);}}}
+function reg(X,Y,sx,sy){ctx.strokeStyle='#5f86bf';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(X,Y+sy*12);ctx.lineTo(X,Y);ctx.lineTo(X+sx*12,Y);ctx.stroke();}
+const lp=(ox,oy,th,x,y,z)=>[ox+x*Math.cos(th)-y*Math.sin(th),oy+x*Math.sin(th)+y*Math.cos(th),z];
+
+// ---------- mirror inset (pinhole camera at door mirror, looking back, image flipped) ----------
+function drawMirror(q,g){if(!mirrorSide)return;const side=mirrorSide,mw=Math.min(240,W*0.42),mh=mw*0.56,mx=W-mw-14,my=80;
+ const tilt=14*D2R,focal=mw*1.8,camZ=1.12,NEAR=0.3;
+ const lx=P.L1-0.45,ly=side*(P.wT/2+0.15),cx=q.x+lx*g.c1-ly*g.s1,cy=q.y+lx*g.s1+ly*g.c1;
+ const a=q.t1+Math.PI-side*tilt,fx=Math.cos(a),fy=Math.sin(a),rx=Math.sin(a),ry=-Math.cos(a);
+ const proj=p=>{const dx=p[0]-cx,dy=p[1]-cy;return[dx*fx+dy*fy,dx*rx+dy*ry,p[2]-camZ];};
+ const toS=c=>[mx+mw/2-focal*c[1]/c[0],my+mh/2-focal*c[2]/c[0]];
+ const ml=(A,B)=>{let a=proj(A),b=proj(B);if(a[0]<NEAR&&b[0]<NEAR)return;if(a[0]<NEAR||b[0]<NEAR){const t=(NEAR-a[0])/(b[0]-a[0]),m=[NEAR,a[1]+t*(b[1]-a[1]),a[2]+t*(b[2]-a[2])];if(a[0]<NEAR)a=m;else b=m;}const A2=toS(a),B2=toS(b);ctx.moveTo(A2[0],A2[1]);ctx.lineTo(B2[0],B2[1]);};
+ ctx.save();ctx.beginPath();ctx.rect(mx,my,mw,mh);ctx.clip();ctx.fillStyle='rgba(13,27,46,.94)';ctx.fillRect(mx,my,mw,mh);
+ ctx.strokeStyle='rgba(95,134,191,.35)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(mx,my+mh/2);ctx.lineTo(mx+mw,my+mh/2);
+ const C=(x,y,z)=>lp(q.x,q.y,q.t1,x,y,z);
+ for(let k=-8;k<=8;k+=2)ml(C(-1,k,0),C(-40,k,0));for(const x of[-4,-8,-12,-16,-24,-36])ml(C(x,-9,0),C(x,9,0));ctx.stroke();
+ const T=SC[scn].t;if(T){const th=T[2]*D2R,B=(x,y)=>lp(T[0],T[1],th,x,y,0),X0=-P.ohR-0.4,X1=P.trayF+0.3,Y=P.wR/2+0.4;ctx.strokeStyle=docked?'#5cff8a':'#7fa6dd';ctx.beginPath();ml(B(X0,-Y),B(X0,Y));ml(B(X1,-Y),B(X1,Y));ml(B(X0,-Y),B(X1,-Y));ml(B(X0,Y),B(X1,Y));ctx.stroke();}
+ ctx.lineWidth=2;for(const c of cones){ctx.strokeStyle=c.hit>0?'#ff4f5e':'#ffb347';ctx.beginPath();ml([c.x,c.y,0],[c.x,c.y,0.45]);ctx.stroke();}
+ const Tr=(x,y,z)=>lp(g.ax,g.ay,q.t2,x,y,z),X0=-P.ohR,X1=P.trayF,Y=P.wR/2;ctx.strokeStyle='#ffb347';ctx.lineWidth=1.5;ctx.beginPath();
+ for(const z of[0.45,0.9,1.9]){ml(Tr(X0,-Y,z),Tr(X0,Y,z));ml(Tr(X1,-Y,z),Tr(X1,Y,z));ml(Tr(X0,-Y,z),Tr(X1,-Y,z));ml(Tr(X0,Y,z),Tr(X1,Y,z));}
+ for(const[x,y]of[[X0,-Y],[X0,Y],[X1,-Y],[X1,Y]])ml(Tr(x,y,0.45),Tr(x,y,1.9));
+ ml(Tr(0,-Y+0.2,0),Tr(0,-Y+0.2,0.45));ml(Tr(0,Y-0.2,0),Tr(0,Y-0.2,0.45));ml(Tr(X1,0,0.5),[g.hx,g.hy,0.5]);ctx.stroke();
+ ctx.strokeStyle='#cfe0ff';ctx.lineWidth=2;ctx.beginPath();ml(C(-P.ohT,side*P.wT/2,0.4),C(-P.ohT,side*P.wT/2,1.4));ml(C(-P.ohT,side*P.wT/2,0.9),C(P.L1-0.6,side*P.wT/2,0.9));ml(C(-P.ohT,side*P.wT/2,0.9),C(-P.ohT,side*P.wT/2*0.7,0.9));ctx.stroke();
+ ctx.restore();ctx.strokeStyle='#5f86bf';ctx.lineWidth=1;ctx.strokeRect(mx+.5,my+.5,mw-1,mh-1);reg(mx+3,my+3,1,1);reg(mx+mw-3,my+mh-3,-1,-1);
+ ctx.fillStyle='#7fa6dd';ctx.font='10px ui-monospace,Menlo,monospace';ctx.textAlign='left';ctx.fillText('MIRROR '+(side<0?'R · DRIVER':'L · PASSENGER'),mx+8,my+12);}
+
+// ---------- render ----------
+function render(ft){const q=replayOn&&rec.length?rec[clamp(recIdx,0,rec.length-1)]:s;const g=geo(q);
+ const tx=(q.x+g.ax)/2,ty=(q.y+g.ay)/2;cam.x+=(tx-cam.x)*Math.min(1,3*ft);cam.y+=(ty-cam.y)*Math.min(1,3*ft);
+ if(!replayOn){if(prevTail&&ft>0)tailV=[(g.tx-prevTail[0])/ft,(g.ty-prevTail[1])/ft];prevTail=[g.tx,g.ty];
+  for(const c of cones){const h=inRect(c.x,c.y,q.x,q.y,q.t1,-P.ohT,P.L1+P.ohF,P.wT/2)||inRect(c.x,c.y,g.ax,g.ay,q.t2,-P.ohR,P.trayF,P.wR/2);if(h&&c.hit<=0){hits++;blip();}c.hit=h?0.6:Math.max(0,c.hit-ft);}
+  rec.push({x:q.x,y:q.y,t1:q.t1,t2:q.t2,d:q.d,v:q.v});if(rec.length>24000)rec.splice(0,2000);}
+ const T=SC[scn].t;dockInfo='';
+ if(T){const th=T[2]*D2R,dd=Math.hypot(g.ax-T[0],g.ay-T[1]),da=Math.abs(wrap(q.t2-th))*R2D;dockInfo=dd.toFixed(2)+' m / '+da.toFixed(1)+'°';
+  if(!replayOn){const ok=dd<0.5&&da<6&&Math.abs(q.v)<0.05;if(ok&&!docked){docked=true;grade(dd,da);}else if(docked&&(dd>0.8||da>8))docked=false;}}
+ ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);ctx.fillStyle='#0d1b2e';ctx.fillRect(0,0,W,H);
+ drawGrid();
+ ctx.save();ctx.translate(W/2,H/2);ctx.scale(sc,-sc);ctx.translate(-cam.x,-cam.y);
+ if(sweepOn){ctx.save();ctx.translate(-SWE,SWE);ctx.scale(1,-1);ctx.drawImage(sw,0,0,2*SWE,2*SWE);ctx.restore();}
+ if(T){const th=T[2]*D2R;ctx.setLineDash([0.5,0.3]);body(T[0],T[1],th,-P.ohR-0.4,P.trayF+0.3,P.wR/2+0.4,docked?'rgba(92,255,138,.12)':null,docked?'#5cff8a':'#7fa6dd',null);ctx.setLineDash([]);
+  ctx.strokeStyle='#7fa6dd';lw(1);ctx.beginPath();ctx.moveTo(T[0]-0.5,T[1]);ctx.lineTo(T[0]+0.5,T[1]);ctx.moveTo(T[0],T[1]-0.5);ctx.lineTo(T[0],T[1]+0.5);ctx.stroke();
+  wtxt('BAY · trailer axle here',T[0]-(P.wR/2+1.2)*Math.sin(th),T[1]+(P.wR/2+1.2)*Math.cos(th),'#7fa6dd');}
+ for(const c of cones){ctx.fillStyle=c.hit>0?'#ff4f5e':'#ffb347';ctx.beginPath();ctx.moveTo(c.x,c.y+0.35);ctx.lineTo(c.x-0.3,c.y-0.25);ctx.lineTo(c.x+0.3,c.y-0.25);ctx.closePath();ctx.fill();}
+ if(Math.abs(q.d)>0.5*D2R){const R=P.L1/Math.tan(q.d),cx=q.x-R*g.s1,cy=q.y+R*g.c1,R2=Math.hypot(g.ax-cx,g.ay-cy);
+  ctx.setLineDash([0.2,0.4]);lw(1);ctx.strokeStyle='rgba(79,227,255,.45)';circle(cx,cy,Math.abs(R));ctx.strokeStyle='rgba(255,179,71,.45)';circle(cx,cy,R2);ctx.setLineDash([]);
+  ctx.strokeStyle='#4fe3ff';lw(1);ctx.beginPath();ctx.moveTo(cx-0.5,cy);ctx.lineTo(cx+0.5,cy);ctx.moveTo(cx,cy-0.5);ctx.lineTo(cx,cy+0.5);ctx.stroke();
+  wtxt('ICR  R₁='+Math.abs(R).toFixed(1)+'m  R₂='+R2.toFixed(1)+'m',cx,cy-0.9,'#4fe3ff');}
+ if(!jack&&!replayOn){const pr=predict(q,gear==='R'?-1:1);ctx.setLineDash([0.4,0.3]);lw(1.5);ctx.strokeStyle='#4fe3ff';poly(pr.A);ctx.strokeStyle='#ffb347';poly(pr.B);ctx.setLineDash([]);
+  if(pr.jk){const e=pr.B[pr.B.length-1];ctx.strokeStyle='#ff4f5e';lw(2);circle(e[0],e[1],0.6);wtxt('JACKKNIFE LIMIT',e[0],e[1]+1.2,'#ff4f5e');}}
+ // trailer
+ body(g.ax,g.ay,q.t2,-P.ohR,P.trayF,P.wR/2,'rgba(13,27,46,.92)','#cfe0ff','#4a6c9e');
+ ctx.strokeStyle='#cfe0ff';lw(2);ctx.beginPath();ctx.moveTo(g.ax+P.trayF*g.c2,g.ay+P.trayF*g.s2);ctx.lineTo(g.hx,g.hy);ctx.stroke();
+ axleTyres(g.ax,g.ay,q.t2,P.wR/2-0.15,0);
+ // tractor
+ body(q.x,q.y,q.t1,-P.ohT,P.L1+P.ohF,P.wT/2,'rgba(13,27,46,.96)','#cfe0ff',null);
+ ctx.save();ctx.translate(q.x,q.y);ctx.rotate(q.t1);ctx.strokeStyle='#cfe0ff';lw(1);ctx.beginPath();ctx.moveTo(P.L1-0.4,-P.wT/2);ctx.lineTo(P.L1-0.4,P.wT/2);ctx.moveTo(P.L1+0.3,-0.5);ctx.lineTo(P.L1+0.8,0);ctx.lineTo(P.L1+0.3,0.5);ctx.stroke();ctx.restore();
+ ctx.strokeStyle='#cfe0ff';lw(2);ctx.beginPath();ctx.moveTo(q.x-P.ohT*g.c1,q.y-P.ohT*g.s1);ctx.lineTo(g.hx,g.hy);ctx.stroke();
+ axleTyres(q.x,q.y,q.t1,P.wT/2-0.15,0);axleTyres(g.fx,g.fy,q.t1,P.wT/2-0.15,q.d);
+ ctx.fillStyle='#ff4fd8';ctx.beginPath();ctx.arc(g.hx,g.hy,0.16,0,TAU);ctx.fill();
+ // hitch arc (+ = tail left)
+ const psi=wrap(q.t1-q.t2),ap=Math.abs(psi),col=ap<25*D2R?'#5cff8a':ap<50*D2R?'#ffb347':'#ff4f5e',a0=q.t1+Math.PI,a1=a0-psi;
+ ctx.strokeStyle=col;lw(2);ctx.beginPath();if(psi>=0)ctx.arc(g.hx,g.hy,1.5,a1,a0);else ctx.arc(g.hx,g.hy,1.5,a0,a1);ctx.stroke();
+ ctx.setLineDash([0.15,0.15]);lw(1);ctx.beginPath();ctx.moveTo(g.hx,g.hy);ctx.lineTo(g.hx+2*Math.cos(a0),g.hy+2*Math.sin(a0));ctx.stroke();ctx.setLineDash([]);
+ wtxt((psi>=0?'+':'')+(psi*R2D).toFixed(1)+'°',g.hx+2.3*Math.cos(a0-psi/2),g.hy+2.3*Math.sin(a0-psi/2),col);
+ const sp=Math.hypot(tailV[0],tailV[1]);if(sp>0.05&&!jack&&!replayOn){const k=Math.min(3,sp*1.2)/sp;arrow(g.tx,g.ty,g.tx+tailV[0]*k,g.ty+tailV[1]*k,'#ff4fd8');}
+ if(sc>11){wtxt('L1 '+P.L1+' m',q.x+P.L1/2*g.c1-(P.wT/2+0.6)*g.s1,q.y+P.L1/2*g.s1+(P.wT/2+0.6)*g.c1,'#7fa6dd');
+  wtxt('L2 '+P.L2+' m',g.ax+P.L2/2*g.c2-(P.wR/2+0.6)*g.s2,g.ay+P.L2/2*g.s2+(P.wR/2+0.6)*g.c2,'#7fa6dd');}
+ if(aim){ctx.strokeStyle='#ff4fd8';lw(1.5);circle(aim.x,aim.y,0.7);ctx.beginPath();ctx.moveTo(aim.x-1.1,aim.y);ctx.lineTo(aim.x+1.1,aim.y);ctx.moveTo(aim.x,aim.y-1.1);ctx.lineTo(aim.x,aim.y+1.1);ctx.stroke();
+  ctx.setLineDash([0.3,0.3]);lw(1);ctx.beginPath();ctx.moveTo(g.tx,g.ty);ctx.lineTo(aim.x,aim.y);ctx.stroke();ctx.setLineDash([]);
+  wtxt('AIM '+Math.hypot(aim.x-g.tx,aim.y-g.ty).toFixed(2)+' m',(aim.x+g.tx)/2,(aim.y+g.ty)/2+0.6,'#ff4fd8');}
+ ctx.restore();
+ // sheet furniture
+ reg(6,6,1,1);reg(W-6,6,-1,1);reg(6,H-6,1,-1);reg(W-6,H-6,-1,-1);
+ ctx.strokeStyle='#cfe0ff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(20,H-24);ctx.lineTo(20+5*sc,H-24);ctx.stroke();ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(20,H-30);ctx.lineTo(20,H-18);ctx.moveTo(20+5*sc,H-30);ctx.lineTo(20+5*sc,H-18);ctx.stroke();
+ ctx.fillStyle='#cfe0ff';ctx.font='10px ui-monospace,Menlo,monospace';ctx.textAlign='left';ctx.fillText('5 m',20+5*sc+6,H-21);
+ ctx.beginPath();ctx.moveTo(W-30,52);ctx.lineTo(W-30,24);ctx.lineTo(W-36,34);ctx.moveTo(W-30,24);ctx.lineTo(W-24,34);ctx.stroke();ctx.textAlign='center';ctx.fillText('N',W-30,66);
+ ctx.textAlign='left';ctx.fillStyle='#7fa6dd';ctx.fillText('SHEET 01 · '+SC[scn].n+(replayOn?' · REPLAY':'')+' · PLAN 1:'+Math.round(100/sc*10)/10,22,24);
+ drawMirror(q,g);
+ banner.style.display=jack||docked?'block':'none';banner.style.color=jack?'#ff4f5e':'#5cff8a';
+ banner.textContent=jack?'JACKKNIFE LIMIT '+Math.round(P.jk*R2D)+'° — drawbar on bumper. RESET.':'DOCKED ✓  Δ '+dockInfo+(score?`  ·  ${score.t.toFixed(0)} s · ${score.sh} shunts · max hitch ${score.mh.toFixed(0)}° · ${score.hits} hits · SCORE ${score.sc}`+(best!=null?' · BEST '+best:''):'');
+ drawWheel(q.d);updateText(psi);}
+function drawWheel(d){const w=wheel.width/dpr,h=wheel.height/dpr;if(!w)return;wctx.setTransform(dpr,0,0,dpr,0,0);wctx.clearRect(0,0,w,h);const cx=w/2,cy=h/2,R=Math.min(w,h)/2-14,rot=-d/P.dMax*135*D2R;
+ wctx.strokeStyle='#3a5f93';wctx.lineWidth=1;wctx.beginPath();wctx.arc(cx,cy,R+5,0,TAU);wctx.stroke();
+ for(let a=0;a<360;a+=5){const r1=a%15===0?R+2:R+4,an=(a-90)*D2R;wctx.beginPath();wctx.moveTo(cx+r1*Math.cos(an),cy+r1*Math.sin(an));wctx.lineTo(cx+(R+8)*Math.cos(an),cy+(R+8)*Math.sin(an));wctx.stroke();}
+ wctx.strokeStyle='#ff4fd8';wctx.lineWidth=2;wctx.beginPath();wctx.moveTo(cx,cy-R-13);wctx.lineTo(cx,cy-R-3);wctx.stroke();
+ wctx.save();wctx.translate(cx,cy);wctx.rotate(rot);
+ wctx.strokeStyle=ptba&&gear==='R'?'#4fe3ff':'#cfe0ff';wctx.lineWidth=R*0.16;wctx.beginPath();wctx.arc(0,0,R-R*0.1,0,TAU);wctx.stroke();
+ wctx.lineWidth=R*0.09;for(const a of[-90,30,150]){const an=a*D2R;wctx.beginPath();wctx.moveTo(0,0);wctx.lineTo((R-R*0.15)*Math.cos(an),(R-R*0.15)*Math.sin(an));wctx.stroke();}
+ wctx.fillStyle='#4fe3ff';wctx.beginPath();wctx.arc(0,0,R*0.12,0,TAU);wctx.fill();
+ wctx.fillStyle='#ff4fd8';wctx.fillRect(-2,-R+1,4,R*0.16);wctx.restore();
+ wctx.fillStyle='#cfe0ff';wctx.font='11px ui-monospace,Menlo,monospace';wctx.textAlign='center';wctx.fillText((d>=0?'L ':'R ')+Math.abs(d*R2D).toFixed(1)+'°',cx,cy+R*0.5);}
+let lastCoach='';
+function updateText(psi){const pd=psi*R2D,rA=P.ball*(P.L1+P.dh)/P.L1,fA=-P.ball*P.dh/P.L1,gvmL=P.gvm-P.kerb-P.ball,gcmL=P.gcm-P.kerb-P.atm;
+ ro.innerHTML=`<span>SPEED</span><b>${(s.v*3.6).toFixed(1)} km/h</b><span>STEER</span><b>${s.d>=0?'L':'R'} ${Math.abs(s.d*R2D).toFixed(1)}°${ptba&&gear==='R'?' AUTO':''}</b><span>HITCH</span><b>${pd>=0?'+':''}${pd.toFixed(1)}° (${pd>=0?'tail L':'tail R'})</b><span>GEAR</span><b>${gear}${hold?' · HOLD':''}</b><span>BAY Δ</span><b>${dockInfo||'—'}</b><span>SHUNTS</span><b>${shunts} · hits ${hits}</b><span>PTBA</span><b>${ptba?(ptbaSat?'LIMIT (lock)':'cmd '+(gDes*R2D).toFixed(0)+'°'):'off'}</b>
+ <span class="w">BALL ${P.ball} kg → rear axle +${rA.toFixed(0)} kg · front ${fA.toFixed(0)} kg (lever ${((P.L1+P.dh)/P.L1).toFixed(2)}×) · GVM left ${gvmL} kg · GCM left ${gcmL} kg (kerb only, no payload)</span>`;
+ const tailLeft=tailV[0]*-Math.sin(s.t1)+tailV[1]*Math.cos(s.t1),moving=Math.abs(s.v)>0.05;let c;
+ if(replayOn)c='REPLAY — scrub the timeline. Watch where the hitch angle ran away and where the shunts happened.';
+ else if(jack)c='JACKKNIFE — drawbar on the bumper corner. A real rig needs a forward pull; here, RESET.';
+ else if(ptba&&gear==='R'){c=ptbaSat?'PTBA LIMIT — wheel at full lock, cannot hold that curve. Shift D, pull forward, re-centre knob.':moving?'PTBA ACTIVE — knob commands the trailer; EPAS steers. Watch the wheel: that is the correction you would make by hand.':'PTBA ARMED — set knob, hold GAS in R. Centre knob (⌂) = trailer straight.';}
+ else if(gear==='R'&&moving){
+  if(Math.abs(pd)>35)c='HITCH '+Math.abs(pd).toFixed(0)+'° — short trailer, too much. Shift D, pull forward wheel-centred to straighten.';
+  else if(tailLeft>0.08)c='TAIL SWINGING LEFT → steer LEFT to catch it (amber line straightens).';
+  else if(tailLeft<-0.08)c='TAIL SWINGING RIGHT → steer RIGHT to catch it (amber line straightens).';
+  else c='TRACKING STRAIGHT. Tiny inputs — 2.85 m trailer diverges ~1.8× faster than a caravan.';}
+ else if(gear==='D'&&moving)c=Math.abs(s.d)>3*D2R?'OFF-TRACKING: trailer axle runs the tighter circle (amber). Inside rear corner cuts in.':'FORWARD: trailer self-aligns. Hitch angle decays on its own.';
+ else c='Drag canvas to steer. Cyan = tractor rear-axle path, amber = trailer tail path. Pick a gear, hold GAS.';
+ if(c!==lastCoach){coach.textContent=c;lastCoach=c;}}
+
+// ---------- input ----------
+stage.addEventListener('pointerdown',e=>{if(ptr)return;stage.setPointerCapture(e.pointerId);ptr={id:e.pointerId,x0:e.clientX,y0:e.clientY,t0:performance.now(),drag:false,d0:s.d};});
+stage.addEventListener('pointermove',e=>{if(!ptr||e.pointerId!==ptr.id)return;const dx=e.clientX-ptr.x0,dy=e.clientY-ptr.y0;if(!ptr.drag&&Math.hypot(dx,dy)>6)ptr.drag=true;if(ptr.drag)s.d=clamp(ptr.d0-dx/140*P.dMax,-P.dMax,P.dMax);});
+const up=e=>{if(!ptr||e.pointerId!==ptr.id)return;if(!ptr.drag&&performance.now()-ptr.t0<350){const r=stage.getBoundingClientRect();aim=s2w(e.clientX-r.left,e.clientY-r.top);}ptr=null;};
+stage.addEventListener('pointerup',up);stage.addEventListener('pointercancel',up);
+function wheelSteer(e){const r=wheel.getBoundingClientRect(),dx=e.clientX-r.left-r.width/2,dy=e.clientY-r.top-r.height/2;s.d=-clamp(Math.atan2(dx,-dy)/(135*D2R),-1,1)*P.dMax;}
+wheel.addEventListener('pointerdown',e=>{wheel.setPointerCapture(e.pointerId);wp=true;wheelSteer(e);});
+wheel.addEventListener('pointermove',e=>{if(wp)wheelSteer(e);});
+wheel.addEventListener('pointerup',()=>wp=false);wheel.addEventListener('pointercancel',()=>wp=false);
+function pedal(el,set){const on=e=>{el.setPointerCapture(e.pointerId);set(true);el.classList.add('on');e.preventDefault();},off=()=>{set(false);el.classList.remove('on');};
+ el.addEventListener('pointerdown',on);el.addEventListener('pointerup',off);el.addEventListener('pointercancel',off);el.addEventListener('lostpointercapture',off);el.addEventListener('contextmenu',e=>e.preventDefault());}
+pedal($('gas'),v=>gasP=v);pedal($('brake'),v=>brakeP=v);
+const gearBtns=[...document.querySelectorAll('.gears button')];
+function setGear(g){gear=g;gearBtns.forEach(b=>b.classList.toggle('on',b.dataset.g===g));}
+gearBtns.forEach(b=>b.addEventListener('pointerdown',()=>setGear(b.dataset.g)));
+function toggleHold(){hold=!hold;holdB.classList.toggle('on',hold);}
+function togglePtba(){ptba=!ptba;ptbaB.classList.toggle('on',ptba);}
+function cycleMirror(){mirrorSide=mirrorSide===-1?1:mirrorSide===1?0:-1;mirB.textContent='MIRROR '+(mirrorSide<0?'R':mirrorSide>0?'L':'—');}
+function toggleSweep(){sweepOn=!sweepOn;swB.classList.toggle('on',sweepOn);if(!sweepOn)clearSweep();}
+function setReplay(on){replayOn=on&&rec.length>1;rpB.classList.toggle('on',replayOn);scrub.style.display=replayOn?'block':'none';if(replayOn){scrub.max=rec.length-1;scrub.value=rec.length-1;recIdx=rec.length-1;}}
+holdB.addEventListener('pointerdown',toggleHold);ptbaB.addEventListener('pointerdown',togglePtba);mirB.addEventListener('pointerdown',cycleMirror);swB.addEventListener('pointerdown',toggleSweep);
+rpB.addEventListener('pointerdown',()=>setReplay(!replayOn));$('reset').addEventListener('pointerdown',()=>reset(scn));
+scrub.addEventListener('input',()=>{recIdx=+scrub.value;});
+const setKnob=v=>{knob.value=clamp(v,-100,100);gDes=-(knob.value/100)*gMax();};
+knob.addEventListener('input',()=>setKnob(+knob.value));$('knob0').addEventListener('pointerdown',()=>setKnob(0));
+SC.forEach((c,i)=>{const o=document.createElement('option');o.value=i;o.textContent=c.n;scnSel.appendChild(o);});
+scnSel.addEventListener('change',()=>reset(+scnSel.value));
+const cfgGrid=$('cfgGrid');CFG.forEach(([k,lab,scl,st])=>{const l=document.createElement('label');l.textContent=lab;const i=document.createElement('input');i.type='number';i.step=st;i.value=+(P[k]/scl).toFixed(2);
+ i.addEventListener('change',()=>{const v=parseFloat(i.value);if(!isFinite(v))return;P[k]=v*scl;if(k!=='ball'&&k!=='atm')reset(scn);});l.appendChild(i);cfgGrid.appendChild(l);});
+addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;keys[e.key]=true;const k=e.key.toLowerCase();
+ if(k==='r')setGear('R');if(k==='d')setGear('D');if(k==='n')setGear('N');if(k==='h')toggleHold();if(k==='p')togglePtba();if(k==='m')cycleMirror();if(k==='s')toggleSweep();if(k==='escape')reset(scn);
+ if(k==='[')setKnob(+knob.value-10);if(k===']')setKnob(+knob.value+10);if(e.key.startsWith('Arrow'))e.preventDefault();});
+addEventListener('keyup',e=>{keys[e.key]=false;});
+
+// ---------- loop: fixed 120 Hz substep ----------
+let last=performance.now(),acc=0;const DT=1/120;
+function loop(now){const ft=Math.min(0.1,(now-last)/1000);last=now;
+ if(!replayOn){
+  if(keys.ArrowLeft)s.d=clamp(s.d+1.8*ft,-P.dMax,P.dMax);if(keys.ArrowRight)s.d=clamp(s.d-1.8*ft,-P.dMax,P.dMax);
+  const steering=(ptr&&ptr.drag)||wp||keys.ArrowLeft||keys.ArrowRight||(ptba&&gear==='R');
+  if(!hold&&!steering)s.d-=s.d*Math.min(1,5*ft);
+  gas=gasP||!!keys.ArrowUp;brake=brakeP||!!keys.ArrowDown;
+  acc+=ft;while(acc>=DT){if(!jack)physics(DT);acc-=DT;}}
+ render(ft);requestAnimationFrame(loop);}
+reset(0);resize();requestAnimationFrame(loop);
+</script></body></html>
